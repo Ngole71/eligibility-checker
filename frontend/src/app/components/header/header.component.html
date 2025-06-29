@@ -1,0 +1,23 @@
+<mat-toolbar color="primary" class="header-toolbar">
+  <div class="toolbar-content">
+    <span class="app-title">
+      <mat-icon>check_circle</mat-icon>
+      Eligibility Checker
+    </span>
+    
+    <nav class="nav-links" *ngIf="!(isHandset$ | async)">
+      <a mat-button routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+        <mat-icon>assignment</mat-icon>
+        Check Eligibility
+      </a>
+      <a mat-button routerLink="/stats" routerLinkActive="active">
+        <mat-icon>bar_chart</mat-icon>
+        Statistics
+      </a>
+    </nav>
+    
+    <button mat-icon-button class="menu-button" *ngIf="isHandset$ | async">
+      <mat-icon>menu</mat-icon>
+    </button>
+  </div>
+</mat-toolbar>

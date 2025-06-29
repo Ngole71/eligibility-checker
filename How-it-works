@@ -1,0 +1,911 @@
+Perfect! I've created a comprehensive "How It Works" guide that covers everything from the initial `docker-compose up -d` command through the complete application flow. This guide includes:
+
+## 📋 **What's Covered:**
+
+### **🚀 Complete Execution Flow**
+- Step-by-step breakdown of what happens when you start the application
+- Detailed container startup sequence (database → backend → frontend)
+- Complete user journey from form submission to database storage
+
+### **🏗️ Architecture Deep Dive** 
+- How frontend, backend, and database components interact
+- Middleware stack execution order
+- Request/response flow with code examples
+
+### **📋 Complete API Documentation**
+- Swagger-style documentation for all endpoints
+- Request/response examples with proper HTTP status codes
+- Error handling examples
+
+### **📁 File Structure Explanation**
+- What every file type does (.json, .ts, .env, .sql, .yml)
+- How configuration files work together
+- Development vs production file differences
+
+### **🔗 System Integration**
+- How Docker containers communicate
+- Database connection pooling
+- TypeScript compilation process
+- Angular component lifecycle
+
+This guide serves as a complete reference for anyone wanting to understand:
+- How modern full-stack applications work
+- The purpose of each technology choice
+- How all the pieces fit together
+- What happens "under the hood" when the application runs
+
+# How the Eligibility Checker Application Works
+
+A comprehensive guide explaining how a modern full-stack application operates from start to finish.
+
+## 🚀 What Happens When You Run `docker-compose up -d`
+
+### **Step 1: Docker Compose Orchestration (0-10 seconds)**
+
+```bash
+docker-compose up -d
+```
+
+1. **Docker reads `docker-compose.yml`** - The orchestration blueprint
+2. **Creates a network** - `eligibility-checker_app-network` for container communication
+3. **Creates volumes** - Persistent storage for database data and node_modules
+4. **Starts building containers** in dependency order
+
+### **Step 2: Database Container Startup (10-20 seconds)**
+
+```
+Database Container (PostgreSQL)
+├── Uses: database/Dockerfile
+├── Runs: postgres:15 base image
+├── Executes: database/init.sql script
+└── Creates: users table with indexes
+```
+
+**What happens inside:**
+1. PostgreSQL starts up
+2. Creates `eligibility_db` database
+3. Runs `init.sql` script automatically
+4. Creates `users` table with proper schema
+5. Sets up indexes for performance
+6. Health check: `pg_isready -U postgres`
+7. Reports "healthy" status
+
+### **Step 3: Backend Container Startup (20-35 seconds)**
+
+```
+Backend Container (Node.js)
+├── Uses: backend/Dockerfile.dev
+├── Installs: All npm dependencies
+├── Starts: nodemon for development
+└── Executes: npm run dev → nodemon --exec ts-node src/server.ts
+```
+
+**Detailed Backend Startup Sequence:**
+
+1. **Container starts** with Node.js 18
+2. **Dependencies installed** via npm install
+3. **TypeScript compilation** begins
+4. **File: `src/server.ts` loads**
+
+```typescript
+// 1. Environment setup
+dotenv.config();                    // Loads .env file
+
+// 2. Telemetry initialization  
+setupTelemetry();                   // OpenTelemetry for tracing
+
+// 3. Express app creation
+const app = express();
+
+// 4. Logger setup (Winston)
+const logger = winston.createLogger({...});
+
+// 5. Database connection (PostgreSQL)
+const pool = new Pool({
+  host: 'database',               // Docker service name
+  port: 5432,
+  database: 'eligibility_db',
+  user: 'postgres',
+  password: 'password'
+});
+
+// 6. Test database connection
+pool.connect((err, client, release) => {
+  // Success: "Database connected successfully"
+});
+
+// 7. Middleware stack setup
+app.use(helmet());                 // Security headers
+app.use(cors());                   // Cross-origin requests
+app.use(express.json());           // JSON parsing
+app.use(requestLogger(logger));    // Request logging
+app.use('/api', limiter);          // Rate limiting
+
+// 8. Route definitions
+app.post('/api/check-eligibility', handler);
+app.get('/api/stats', handler);
+app.get('/health', handler);
+
+// 9. Error handling
+app.use(notFoundHandler);
+app.use(errorHandler(logger));
+
+// 10. Server starts listening
+app.listen(3000, () => {
+  logger.info('Server running on port 3000');
+});
+```
+
+### **Step 4: Frontend Container Startup (35-60 seconds)**
+
+```
+Frontend Container (Angular)
+├── Uses: frontend/Dockerfile.dev
+├── Installs: Angular CLI + dependencies
+├── Starts: ng serve --host 0.0.0.0
+└── Compiles: TypeScript to JavaScript
+```
+
+**Frontend Startup Sequence:**
+
+1. **Angular CLI starts**
+2. **TypeScript compilation**
+3. **Module loading order:**
+
+```typescript
+// 1. main.ts - Application bootstrap
+platformBrowserDynamic().bootstrapModule(AppModule);
+
+// 2. app.module.ts - Module configuration
+@NgModule({
+  declarations: [AppComponent, HeaderComponent, ...],
+  imports: [BrowserModule, HttpClientModule, ...],
+  bootstrap: [AppComponent]
+})
+
+// 3. app.component.ts - Root component
+@Component({
+  template: `
+    <app-header></app-header>
+    <router-outlet></router-outlet>
+  `
+})
+
+// 4. Router setup
+const routes = [
+  { path: '', component: EligibilityComponent },
+  { path: 'stats', component: StatsComponent }
+];
+```
+
+4. **Development server starts** on port 4200
+5. **Hot reload enabled** for development
+
+## 🔄 Complete User Journey: Form Submission Flow
+
+### **Frontend: User Interaction**
+
+```
+User fills form → Angular validation → HTTP service → Backend API
+```
+
+**Detailed Flow:**
+
+1. **User enters data** in form fields
+2. **Angular validates** using reactive forms:
+   ```typescript
+   this.eligibilityForm = this.fb.group({
+     firstName: ['', [Validators.required, Validators.pattern(/^[a-zA-Z\s'-]+$/)]],
+     lastName: ['', [Validators.required, Validators.pattern(/^[a-zA-Z\s'-]+$/)]],
+     dateOfBirth: ['', [Validators.required]]
+   });
+   ```
+
+3. **Form submission triggers:**
+   ```typescript
+   onSubmit(): void {
+     if (this.eligibilityForm.valid) {
+       // Convert date format
+       const formData = {
+         ...this.eligibilityForm.value,
+         dateOfBirth: new Date(this.eligibilityForm.value.dateOfBirth)
+           .toISOString().split('T')[0]
+       };
+       
+       // Call service
+       this.eligibilityService.checkEligibility(formData).subscribe({...});
+     }
+   }
+   ```
+
+4. **EligibilityService makes HTTP call:**
+   ```typescript
+   checkEligibility(data: EligibilityRequest): Observable<EligibilityResponse> {
+     return this.http.post<EligibilityResponse>(
+       `http://localhost:3000/api/check-eligibility`, 
+       data
+     );
+   }
+   ```
+
+### **Network: HTTP Request**
+
+```
+Browser → Docker Network → Backend Container
+```
+
+1. **HTTP POST request** to `http://localhost:3000/api/check-eligibility`
+2. **Request headers:** Content-Type: application/json
+3. **Request body:**
+   ```json
+   {
+     "firstName": "John",
+     "lastName": "Doe", 
+     "dateOfBirth": "1990-01-01"
+   }
+   ```
+
+### **Backend: Request Processing**
+
+```
+Express Router → Middleware Stack → Business Logic → Database Query
+```
+
+**Step-by-step backend processing:**
+
+1. **Request hits Express server**
+2. **Middleware stack execution:**
+   ```typescript
+   // 1. Helmet - Security headers
+   app.use(helmet());
+   
+   // 2. CORS - Cross-origin headers
+   app.use(cors());
+   
+   // 3. JSON parsing - Parse request body
+   app.use(express.json());
+   
+   // 4. Request logging - Log incoming request
+   app.use(requestLogger(logger));
+   
+   // 5. Rate limiting - Check request limits
+   app.use('/api', limiter);
+   ```
+
+3. **Route handler execution:**
+   ```typescript
+   app.post('/api/check-eligibility', async (req, res, next) => {
+     try {
+       // 1. Input validation with Joi
+       const { error, value } = userSchema.validate(req.body);
+       if (error) {
+         return res.status(400).json({ 
+           error: 'Validation failed',
+           details: error.details.map(detail => detail.message)
+         });
+       }
+   
+       // 2. Extract validated data
+       const { firstName, lastName, dateOfBirth } = value;
+       
+       // 3. Business logic - Age calculation
+       const age = calculateAge(dateOfBirth);
+       const isEligible = age >= 18;
+   
+       // 4. Database operation
+       const query = `
+         INSERT INTO users (first_name, last_name, date_of_birth, age, is_eligible, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING id, created_at
+       `;
+       
+       const result = await pool.query(query, [
+         firstName.trim(),
+         lastName.trim(),
+         dateOfBirth,
+         age,
+         isEligible
+       ]);
+   
+       // 5. Response preparation
+       const userId = result.rows[0]?.id;
+       
+       // 6. Logging
+       logger.info('User eligibility checked', {
+         userId, age, eligible: isEligible
+       });
+   
+       // 7. Send response
+       res.status(201).json({
+         id: userId,
+         age,
+         eligible: isEligible,
+         message: isEligible 
+           ? 'You are eligible for the program' 
+           : 'You are not eligible for the program',
+         timestamp: result.rows[0]?.created_at
+       });
+   
+     } catch (error) {
+       // Error handling
+       logger.error('Error checking eligibility', { error });
+       next(error);
+     }
+   });
+   ```
+
+### **Database: Data Persistence**
+
+```
+PostgreSQL Connection Pool → SQL Execution → Data Storage
+```
+
+1. **Connection pool** provides database connection
+2. **Parameterized query** prevents SQL injection
+3. **Transaction execution:**
+   ```sql
+   INSERT INTO users (first_name, last_name, date_of_birth, age, is_eligible, created_at)
+   VALUES ('John', 'Doe', '1990-01-01', 33, true, NOW())
+   RETURNING id, created_at;
+   ```
+4. **Triggers fire** (update timestamp trigger)
+5. **Data persisted** to volume storage
+6. **Result returned** to application
+
+### **Response Journey Back**
+
+```
+Database → Backend → Network → Frontend → UI Update
+```
+
+1. **Database returns** inserted record ID and timestamp
+2. **Backend sends JSON response:**
+   ```json
+   {
+     "id": 123,
+     "age": 33,
+     "eligible": true,
+     "message": "You are eligible for the program",
+     "timestamp": "2025-06-29T12:00:00Z"
+   }
+   ```
+3. **Frontend receives response**
+4. **Angular updates UI:**
+   ```typescript
+   this.eligibilityService.checkEligibility(formData).subscribe({
+     next: (response) => {
+       this.result = response;              // Store result
+       this.loading = false;                // Hide spinner
+       this.snackBar.open('Success!');      // Show notification
+     }
+   });
+   ```
+5. **Result card displays** with eligibility status
+
+## 🏗️ Architecture: How Components Work Together
+
+### **Frontend Architecture (Angular)**
+
+```
+┌─────────────────────────────────────────┐
+│                Browser                  │
+├─────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────────────┐│
+│  │   Angular   │ │    Material Design  ││
+│  │   Router    │ │     Components      ││
+│  └─────────────┘ └─────────────────────┘│
+├─────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────────────┐│
+│  │ HTTP Client │ │   Reactive Forms    ││
+│  │  Service    │ │   (Validation)      ││
+│  └─────────────┘ └─────────────────────┘│
+├─────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────────────┐│
+│  │   Chart.js  │ │    TypeScript       ││
+│  │ (Analytics) │ │   (Type Safety)     ││
+│  └─────────────┘ └─────────────────────┘│
+└─────────────────────────────────────────┘
+```
+
+**Component Relationships:**
+- **AppComponent** → Root component, contains router-outlet
+- **HeaderComponent** → Navigation, responsive design
+- **EligibilityComponent** → Form handling, validation, submission
+- **StatsComponent** → Data visualization, charts
+- **EligibilityService** → HTTP communication with backend
+
+### **Backend Architecture (Node.js)**
+
+```
+┌─────────────────────────────────────────┐
+│            Express Server              │
+├─────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐│
+│  │         Middleware Stack            ││
+│  │ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────────┐ ││
+│  │ │CORS │ │Auth │ │Rate │ │ Logging │ ││
+│  │ │     │ │     │ │Limit│ │         │ ││
+│  │ └─────┘ └─────┘ └─────┘ └─────────┘ ││
+│  └─────────────────────────────────────┘│
+├─────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐│
+│  │           Route Handlers            ││
+│  │ ┌─────────┐ ┌─────────┐ ┌─────────┐ ││
+│  │ │Eligib.  │ │ Stats   │ │ Health  │ ││
+│  │ │Handler  │ │Handler  │ │ Check   │ ││
+│  │ └─────────┘ └─────────┘ └─────────┘ ││
+│  └─────────────────────────────────────┘│
+├─────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐│
+│  │        Business Logic              ││
+│  │ ┌─────────┐ ┌─────────┐ ┌─────────┐ ││
+│  │ │   Age   │ │ Validation│ │Database │ ││
+│  │ │Calculation│ │ (Joi)   │ │Queries  │ ││
+│  │ └─────────┘ └─────────┘ └─────────┘ ││
+│  └─────────────────────────────────────┘│
+└─────────────────────────────────────────┘
+```
+
+### **Database Architecture (PostgreSQL)**
+
+```
+┌─────────────────────────────────────────┐
+│          PostgreSQL Database           │
+├─────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐│
+│  │             Tables                  ││
+│  │ ┌─────────────────────────────────┐ ││
+│  │ │            users                │ ││
+│  │ │ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ │ ││
+│  │ │ │ id  │ │name │ │ age │ │eligible│││
+│  │ │ └─────┘ └─────┘ └─────┘ └─────┘ │ ││
+│  │ └─────────────────────────────────┘ ││
+│  └─────────────────────────────────────┘│
+├─────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐│
+│  │            Indexes                  ││
+│  │ ┌─────────┐ ┌─────────┐ ┌─────────┐ ││
+│  │ │created_ │ │eligible │ │   age   │ ││
+│  │ │   at    │ │         │ │         │ ││
+│  │ └─────────┘ └─────────┘ └─────────┘ ││
+│  └─────────────────────────────────────┘│
+├─────────────────────────────────────────┤
+│  ┌─────────────────────────────────────┐│
+│  │          Views & Triggers           ││
+│  │ ┌─────────────┐ ┌─────────────────┐ ││
+│  │ │user_        │ │update_updated_  │ ││
+│  │ │statistics   │ │at_trigger       │ ││
+│  │ └─────────────┘ └─────────────────┘ ││
+│  └─────────────────────────────────────┘│
+└─────────────────────────────────────────┘
+```
+
+## 📋 API Documentation (Swagger-style)
+
+### **Base URL**
+```
+http://localhost:3000/api
+```
+
+### **Authentication**
+Currently no authentication required (public endpoints)
+
+---
+
+### **POST /api/check-eligibility**
+
+Check if a user is eligible for the program based on their age.
+
+**Request Body:**
+```json
+{
+  "firstName": "string (1-50 chars, letters/spaces/hyphens/apostrophes only)",
+  "lastName": "string (1-50 chars, letters/spaces/hyphens/apostrophes only)", 
+  "dateOfBirth": "string (ISO date format: YYYY-MM-DD, not future date)"
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST http://localhost:3000/api/check-eligibility \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "John",
+    "lastName": "Doe",
+    "dateOfBirth": "1990-01-01"
+  }'
+```
+
+**Success Response (201):**
+```json
+{
+  "id": 123,
+  "age": 33,
+  "eligible": true,
+  "message": "You are eligible for the program",
+  "timestamp": "2025-06-29T12:00:00.000Z"
+}
+```
+
+**Validation Error (400):**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    "First name must contain only letters, spaces, hyphens, and apostrophes"
+  ]
+}
+```
+
+**Server Error (500):**
+```json
+{
+  "success": false,
+  "error": "Database error"
+}
+```
+
+---
+
+### **GET /api/stats**
+
+Get application statistics including user counts and demographics.
+
+**Request:**
+```bash
+curl http://localhost:3000/api/stats
+```
+
+**Success Response (200):**
+```json
+{
+  "statistics": {
+    "totalUsers": 150,
+    "eligibleUsers": 120,
+    "ineligibleUsers": 30,
+    "averageAge": 28.5
+  }
+}
+```
+
+**Server Error (500):**
+```json
+{
+  "success": false,
+  "error": "Database connection failed"
+}
+```
+
+---
+
+### **GET /health**
+
+Health check endpoint for monitoring and load balancers.
+
+**Request:**
+```bash
+curl http://localhost:3000/health
+```
+
+**Healthy Response (200):**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-06-29T12:00:00.000Z",
+  "uptime": 3600,
+  "database": "connected",
+  "memory": {
+    "rss": 26413056,
+    "heapTotal": 20538632,
+    "heapUsed": 19801288,
+    "external": 6137406,
+    "arrayBuffers": 2549215
+  },
+  "version": "1.0.0"
+}
+```
+
+**Unhealthy Response (503):**
+```json
+{
+  "status": "unhealthy",
+  "timestamp": "2025-06-29T12:00:00.000Z",
+  "database": "disconnected",
+  "error": "Database connection failed"
+}
+```
+
+---
+
+### **GET /ready**
+
+Kubernetes readiness probe endpoint.
+
+**Success Response (200):**
+```json
+{
+  "status": "ready"
+}
+```
+
+**Not Ready Response (503):**
+```json
+{
+  "status": "not ready"
+}
+```
+
+## 📁 Project File Structure Explained
+
+### **Configuration Files**
+
+#### **package.json** - Node.js Project Manifest
+```json
+{
+  "name": "project-name",           // Project identifier
+  "version": "1.0.0",              // Semantic version
+  "scripts": {                     // Command shortcuts
+    "start": "node dist/server.js", // Production start
+    "dev": "nodemon src/server.ts"  // Development start
+  },
+  "dependencies": {                // Runtime packages
+    "express": "^4.18.2"           // Web framework
+  },
+  "devDependencies": {             // Development-only packages
+    "typescript": "^5.2.2"         // TypeScript compiler
+  }
+}
+```
+
+**Purpose:** Defines project metadata, dependencies, and scripts. npm reads this to install packages and run commands.
+
+#### **tsconfig.json** - TypeScript Configuration
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",            // JavaScript version to compile to
+    "module": "commonjs",          // Module system (Node.js style)
+    "outDir": "./dist",            // Compiled output directory
+    "rootDir": "./src",            // Source code directory
+    "strict": true                 // Enable strict type checking
+  },
+  "include": ["src/**/*"],         // Files to compile
+  "exclude": ["node_modules"]      // Files to ignore
+}
+```
+
+**Purpose:** Tells TypeScript compiler how to convert .ts files to .js files.
+
+#### **angular.json** - Angular CLI Configuration
+```json
+{
+  "projects": {
+    "frontend": {
+      "architect": {
+        "build": {                 // Build configuration
+          "options": {
+            "outputPath": "dist/", // Where to put built files
+            "index": "src/index.html",
+            "main": "src/main.ts"  // Entry point
+          }
+        },
+        "serve": {                 // Development server config
+          "options": {
+            "port": 4200           // Development port
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Purpose:** Configures Angular CLI commands like `ng build`, `ng serve`, `ng test`.
+
+#### **.env** - Environment Variables
+```bash
+NODE_ENV=development              # Environment type
+PORT=3000                        # Server port
+DB_HOST=database                 # Database hostname
+DB_PASSWORD=password             # Database password (never commit!)
+LOG_LEVEL=info                   # Logging verbosity
+```
+
+**Purpose:** Stores configuration that changes between environments (dev/staging/production). Keeps secrets out of code.
+
+### **Source Code Files**
+
+#### **TypeScript Files (.ts)**
+```typescript
+// Type definitions
+interface User {
+  id: number;
+  name: string;
+}
+
+// Classes with type safety
+class UserService {
+  private users: User[] = [];
+  
+  addUser(user: User): void {
+    this.users.push(user);
+  }
+}
+```
+
+**Purpose:** TypeScript adds type safety to JavaScript. Catches errors at compile time, improves code quality and IDE support.
+
+#### **JavaScript Files (.js)**
+```javascript
+// Compiled output from TypeScript
+function calculateAge(dateOfBirth) {
+  const today = new Date();
+  const birth = new Date(dateOfBirth);
+  return today.getFullYear() - birth.getFullYear();
+}
+```
+
+**Purpose:** The actual code that runs in Node.js or browsers. TypeScript compiles to JavaScript.
+
+#### **HTML Template Files (.html)**
+```html
+<!-- Angular component template -->
+<div class="form-container">
+  <form [formGroup]="eligibilityForm" (ngSubmit)="onSubmit()">
+    <input matInput formControlName="firstName" placeholder="First Name">
+    <button type="submit">Submit</button>
+  </form>
+</div>
+```
+
+**Purpose:** Defines the visual structure and layout. Angular processes these with special syntax for data binding.
+
+#### **Sass/CSS Files (.scss/.css)**
+```scss
+// Sass syntax - compiles to CSS
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+  
+  .form-field {
+    margin-bottom: 16px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+```
+
+**Purpose:** Styles the visual appearance. Sass adds features like variables and nesting to CSS.
+
+### **Data Files**
+
+#### **SQL Files (.sql)**
+```sql
+-- Database schema definition
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_users_created_at ON users(created_at);
+```
+
+**Purpose:** Defines database structure, tables, relationships, and initial data.
+
+#### **YAML Files (.yml/.yaml)**
+```yaml
+# Docker Compose configuration
+services:
+  database:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: myapp
+    ports:
+      - "5432:5432"
+  
+  backend:
+    build: ./backend
+    depends_on:
+      - database
+```
+
+**Purpose:** Configuration files for Docker, Kubernetes, CI/CD pipelines. Human-readable format for complex configurations.
+
+### **Build and Output Files**
+
+#### **lock files (package-lock.json, yarn.lock)**
+```json
+{
+  "name": "project",
+  "lockfileVersion": 2,
+  "packages": {
+    "node_modules/express": {
+      "version": "4.18.2",
+      "resolved": "https://registry.npmjs.org/express/-/express-4.18.2.tgz",
+      "integrity": "sha512-..."
+    }
+  }
+}
+```
+
+**Purpose:** Locks exact dependency versions to ensure consistent installations across different machines and environments.
+
+#### **dist/ folder**
+```
+dist/
+├── server.js              # Compiled TypeScript
+├── server.js.map          # Source maps for debugging
+└── assets/                # Static files
+```
+
+**Purpose:** Contains compiled, optimized code ready for production deployment.
+
+### **Development Tools**
+
+#### **nodemon.json** - Development File Watcher
+```json
+{
+  "watch": ["src"],                 // Directories to watch
+  "ext": "ts,js",                  // File extensions to monitor
+  "exec": "ts-node src/server.ts", // Command to run on changes
+  "env": {
+    "NODE_ENV": "development"      // Environment variables
+  }
+}
+```
+
+**Purpose:** Automatically restarts the server when code changes during development.
+
+#### **jest.config.js** - Testing Configuration
+```javascript
+module.exports = {
+  preset: 'ts-jest',               // Use TypeScript preset
+  testEnvironment: 'node',         // Node.js environment
+  collectCoverageFrom: [           // Files to include in coverage
+    'src/**/*.ts',
+    '!src/**/*.test.ts'
+  ],
+  coverageThreshold: {             // Minimum coverage requirements
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80
+    }
+  }
+};
+```
+
+**Purpose:** Configures the Jest testing framework, coverage requirements, and test environment.
+
+## 🔗 How Everything Connects
+
+### **Dependency Flow**
+```
+User Request → Frontend → HTTP → Backend → Database → Response
+     ↑                                                    ↓
+     └─────────────── UI Update ←─────────────────────────┘
+```
+
+### **File Relationships**
+```
+package.json → installs → node_modules → used by → .ts files
+     ↓                                                ↓
+tsconfig.json → compiles → .ts to .js → runs in → Node.js
+     ↓                                                ↓
+.env → configures → application → connects to → Database
+```
+
+### **Development vs Production**
+```
+Development:                    Production:
+.ts files → ts-node            .ts files → tsc → .js files
+nodemon → auto-restart         PM2 → process management
+Source maps → debugging        Minified → optimized
+```
+
+This comprehensive guide shows how modern web applications are structured and how every piece works together to create a seamless user experience! 🚀

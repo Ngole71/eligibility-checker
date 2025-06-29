@@ -1,0 +1,60 @@
+<div class="eligibility-container">
+  <mat-card class="eligibility-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>assignment</mat-icon>
+        Program Eligibility Check
+      </mat-card-title>
+      <mat-card-subtitle>
+        Enter your information to check if you're eligible for our program
+      </mat-card-subtitle>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <form [formGroup]="eligibilityForm" (ngSubmit)="onSubmit()" class="eligibility-form">
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>First Name</mat-label>
+            <input matInput formControlName="firstName" placeholder="Enter your first name">
+            <mat-error *ngIf="eligibilityForm.get('firstName')?.hasError('required')">
+              First name is required
+            </mat-error>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Last Name</mat-label>
+            <input matInput formControlName="lastName" placeholder="Enter your last name">
+            <mat-error *ngIf="eligibilityForm.get('lastName')?.hasError('required')">
+              Last name is required
+            </mat-error>
+          </mat-form-field>
+        </div>
+        
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Date of Birth</mat-label>
+          <input matInput [matDatepicker]="picker" formControlName="dateOfBirth">
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+          <mat-error *ngIf="eligibilityForm.get('dateOfBirth')?.hasError('required')">
+            Date of birth is required
+          </mat-error>
+        </mat-form-field>
+        
+        <button mat-raised-button color="primary" type="submit" 
+                [disabled]="!eligibilityForm.valid || loading" class="submit-button">
+          <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+          <mat-icon *ngIf="!loading">check</mat-icon>
+          {{ loading ? 'Checking...' : 'Check Eligibility' }}
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+  
+  <mat-card *ngIf="result" class="result-card">
+    <mat-card-content>
+      <h2>{{ result.message }}</h2>
+      <p>Age: {{ result.age }} years old</p>
+      <button mat-button (click)="resetForm()">Check Another Person</button>
+    </mat-card-content>
+  </mat-card>
+</div>

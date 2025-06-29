@@ -1,0 +1,191 @@
+<!-- frontend/src/app/components/stats/stats.component.html -->
+<div class="stats-container">
+  <!-- Header Section -->
+  <mat-card class="stats-header">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>bar_chart</mat-icon>
+        Application Statistics
+      </mat-card-title>
+      <mat-card-subtitle>
+        Overview of eligibility check results and analytics
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" (click)="refresh()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        Refresh Data
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Loading statistics...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error" class="error-container">
+    <mat-card class="error-card">
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon color="warn" class="error-icon">error</mat-icon>
+          <h3>Unable to Load Statistics</h3>
+          <p>{{ error }}</p>
+          <button mat-raised-button color="primary" (click)="refresh()">
+            <mat-icon>refresh</mat-icon>
+            Try Again
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Statistics Content -->
+  <div *ngIf="stats && !loading" class="stats-content">
+    
+    <!-- Key Metrics Cards -->
+    <div class="metrics-grid">
+      <mat-card class="metric-card total">
+        <mat-card-content>
+          <div class="metric-content">
+            <div class="metric-icon">
+              <mat-icon>people</mat-icon>
+            </div>
+            <div class="metric-text">
+              <h2>{{ stats.totalUsers }}</h2>
+              <p>Total Applications</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="metric-card eligible">
+        <mat-card-content>
+          <div class="metric-content">
+            <div class="metric-icon">
+              <mat-icon>check_circle</mat-icon>
+            </div>
+            <div class="metric-text">
+              <h2>{{ stats.eligibleUsers }}</h2>
+              <p>Eligible Applicants</p>
+              <span class="percentage">{{ getEligibilityPercentage() }}%</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="metric-card ineligible">
+        <mat-card-content>
+          <div class="metric-content">
+            <div class="metric-icon">
+              <mat-icon>cancel</mat-icon>
+            </div>
+            <div class="metric-text">
+              <h2>{{ stats.ineligibleUsers }}</h2>
+              <p>Ineligible Applicants</p>
+              <span class="percentage">{{ 100 - getEligibilityPercentage() }}%</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="metric-card average">
+        <mat-card-content>
+          <div class="metric-content">
+            <div class="metric-icon">
+              <mat-icon>trending_up</mat-icon>
+            </div>
+            <div class="metric-text">
+              <h2>{{ stats.averageAge | number:'1.1-1' }}</h2>
+              <p>Average Age</p>
+              <span class="unit">years</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+      <div class="charts-grid">
+        
+        <!-- Pie Chart -->
+        <mat-card class="chart-card">
+          <mat-card-header>
+            <mat-card-title>Eligibility Distribution</mat-card-title>
+            <mat-card-subtitle>Breakdown of eligible vs ineligible applicants</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="chart-container">
+              <canvas #pieChartCanvas></canvas>
+            </div>
+            <div class="chart-summary">
+              <div class="summary-item">
+                <span class="color-indicator eligible"></span>
+                <span>{{ stats.eligibleUsers }} Eligible ({{ getEligibilityPercentage() }}%)</span>
+              </div>
+              <div class="summary-item">
+                <span class="color-indicator ineligible"></span>
+                <span>{{ stats.ineligibleUsers }} Not Eligible ({{ 100 - getEligibilityPercentage() }}%)</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Bar Chart -->
+        <mat-card class="chart-card">
+          <mat-card-header>
+            <mat-card-title>Application Overview</mat-card-title>
+            <mat-card-subtitle>Total applications and eligibility breakdown</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="chart-container">
+              <canvas #barChartCanvas></canvas>
+            </div>
+            <div class="chart-insights">
+              <p><strong>Success Rate:</strong> {{ getEligibilityPercentage() }}% of applicants meet eligibility criteria</p>
+              <p><strong>Total Processed:</strong> {{ stats.totalUsers }} applications reviewed</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Summary Section -->
+    <mat-card class="summary-card">
+      <mat-card-header>
+        <mat-card-title>Summary Insights</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-grid">
+          <div class="insight-item">
+            <mat-icon color="primary">insights</mat-icon>
+            <div>
+              <h4>Eligibility Rate</h4>
+              <p>{{ getEligibilityPercentage() }}% of applicants qualify for the program</p>
+            </div>
+          </div>
+          
+          <div class="insight-item">
+            <mat-icon color="accent">groups</mat-icon>
+            <div>
+              <h4>Average Applicant Age</h4>
+              <p>{{ stats.averageAge | number:'1.1-1' }} years across all submissions</p>
+            </div>
+          </div>
+          
+          <div class="insight-item">
+            <mat-icon color="warn">analytics</mat-icon>
+            <div>
+              <h4>Application Volume</h4>
+              <p>{{ stats.totalUsers }} total applications processed</p>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
